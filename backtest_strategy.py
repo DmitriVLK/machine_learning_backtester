@@ -4,6 +4,7 @@ import multiprocessing
 from os import getcwd
 from os.path import join, exists
 import keras
+from tensorflow.python.data import Dataset
 
 import keras_models
 import numpy as np
@@ -130,9 +131,6 @@ def run() -> None:
 
 def process(file_name, currency_pair: EnumPair, model: keras.Model) -> list:
     # load the trained model in the "model" folder using keras built-in tools
-
-    probability_model = keras_models.get_probability_model(model)
-
     quantity_processed = 0
     indicators_return_size = 0
     positions_list = []
@@ -173,12 +171,15 @@ def process(file_name, currency_pair: EnumPair, model: keras.Model) -> list:
                                                 constants.EACH_STEP_TIMER,
                                                 each_quote.get_local_timestamp()):
             previous_report_time = each_quote.get_local_timestamp()
-            collected_features: tuple = ProcessQuotesFile.collect_indicators_values(indicators, indicators_return_size)
-
-            features = (np.expand_dims(collected_features, 0))
-            label_predict = probability_model.predict(x=features, verbose=0)
+            collected_features = ProcessQuotesFile.collect_indicators_values(indicators, indicators_return_size)
+            # Wrap into a dataset object. Maybe the collected_features = (np.expand_dims(collected_features, 0))
+            # would equally work
+            collected_features = ([collected_features,],)
+            collected_features = Dataset.from_tensor_slices(collected_features).batch(constants.BATCH_SIZE)
+            #features = (np.expand_dims(collected_features, 0))
+            label_prediction = model.predict(x=collected_features, verbose=0)
             # (ex. (True, False) -> buy, (False,True) -> sell, (False, False) or (True, True) -> nothing)
-            label_prediction = (label_predict[0][0] > 0.5, label_predict[0][1] > 0.5)
+            label_prediction = (label_prediction[0][0] > 0.5, label_prediction[0][1] > 0.5)
 
             is_long = tuple(label_prediction) == (True, False)
             is_short = tuple(label_prediction) == (False, True)

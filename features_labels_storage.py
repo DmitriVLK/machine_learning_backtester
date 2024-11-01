@@ -39,6 +39,10 @@ class FeaturesLabelsStorage:
             # If you don't want to check the latest file names:
             file_extension = ".pkl"
             file_name_base = CommonUtilities.get_most_recent_file_base_name_by_filename_extension(directory_base, file_extension)
+            if file_name_base is None:
+                print("There was no files found that match the restored file criteria. Make sure you went through all"
+                      "the necessary algo steps to generate correct set of precursor files.")
+                return tuple()
             searched_file_name = file_name_base + "_" + str(index) + file_extension
             if directory_base is not None and directory_base != "" and directory_base != ".":
                 file_pointer = os.path.join(directory_base, searched_file_name)

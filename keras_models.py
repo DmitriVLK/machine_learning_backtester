@@ -1,4 +1,5 @@
 import keras
+from keras import Model
 from keras_tuner.tuners import RandomSearch
 from keras_tuner.tuners import BayesianOptimization
 from keras_tuner.tuners import GridSearch
@@ -40,26 +41,17 @@ def build_model(hp, input_vector_length, output_vector_length):
             name=layer_name
         ))
     # Output layer
-    model.add(keras.layers.Dense(output_vector_length, activation='sigmoid', name='output_layer'))
+    model.add(keras.layers.Dense(output_vector_length, activation="softmax", name='output_layer'))
     # Compile the model
     model.compile(
         optimizer=keras.optimizers.Adam(learning_rate=hp.Float('learning_rate', min_value=1e-4, max_value=1e-2, sampling='LOG')),
-        loss='binary_crossentropy',
-        metrics=['accuracy']
+        loss=keras.losses.BinaryCrossentropy(),
+        metrics=[keras.metrics.BinaryAccuracy()]
     )
     return model
 
-
-def get_probability_model(model: keras.Model):
-    """
-    This is generating the model probability for the backtest.
-    @param model: the keras MODEL of your neural network with FIT (already predetermined) weights.
-    @return: returns a Sequential model with Softmax() output layer.
-    """
-    return keras.Sequential([model, keras.layers.Softmax()])
-
 def get_model_prototype(input_vector_length: int, output_vector_length: int,
-                        train_dataset: Dataset, test_dataset: Dataset) -> tuple:
+                        train_dataset: Dataset, test_dataset: Dataset) -> Model:
     """
     This is a prototype model. With optimization of high level parameters using some kind of a SEARCH algo.
      If you are creating your own neural network model, you can base it out of this model.
@@ -95,7 +87,7 @@ def get_model_prototype(input_vector_length: int, output_vector_length: int,
             project_name='accuracy_tuning')
     else:
         print("This HyperParamsOptimization is not yet implemented.")
-        return ()
+        return None
 
     tuner.search_space_summary()
 
@@ -106,12 +98,10 @@ def get_model_prototype(input_vector_length: int, output_vector_length: int,
     best_model = tuner.get_best_models(num_models=1)[0]
     best_model.summary()
 
-    probability_model = get_probability_model(best_model)
-
-    return best_model, probability_model
+    return best_model
 
 
-def get_model_prototype_simple(input_vector_length: int, output_vector_length: int) -> tuple:
+def get_model_prototype_simple(input_vector_length: int, output_vector_length: int) -> Model:
     """
     This is a prototype model. If you are creating your own neural network model, you can base it out of this model.
     It's the simple version of the model. The SEARCH models you see higher in this code represent the same models
@@ -125,17 +115,15 @@ def get_model_prototype_simple(input_vector_length: int, output_vector_length: i
         [
             # Input layer: 1xN
             keras.layers.Input(shape=(input_vector_length,)),
-            keras.layers.Dense(20, activation="relu", name="layer1"),
-            keras.layers.Dense(30, activation="relu", name="layer2"),
-            keras.layers.Dense(output_vector_length, name="output_layer"),
+            keras.layers.Dense(10, activation="leaky_relu", name="layer1"),
+            #keras.layers.Dense(30, activation="leaky_relu", name="layer2"),
+            keras.layers.Dense(output_vector_length, activation="softmax",  name="output_layer", kernel_initializer='zeros'),
         ]
     )
 
     # Call model on a test input
-    model.compile(optimizer=keras.optimizers.Adam(),
-                  loss=keras.losses.Hinge(),
+    model.compile(optimizer=keras.optimizers.RMSprop(),
+                  loss=keras.losses.BinaryCrossentropy(),
                   metrics=[keras.metrics.BinaryAccuracy()])
 
-    probability_model = get_probability_model(model)
-
-    return model, probability_model
+    return model

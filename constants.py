@@ -71,13 +71,13 @@ TEST_FRACTION = 0.30
 # Epochs set how many times you will sweep through the (same set of) data to train the network. With each sweep the
 # model gets incremental adjustments and the loss (calculated with loss function) decreases. So, having many epochs
 # might be beneficial to having a well-trained model. Too many epochs can lead to overfitting problems.
-EPOCHS_COUNT = 20
+EPOCHS_COUNT = 50
 # The size of a single trained slice. We use BATCH SIZE to allow for a more efficient training of model by increasing
 # each iteration training size. The batch size divides the sample into BATCH_SIZE sized portions given to the training
 # model. For example, if you had 1000 input points and BATCH_SIZE=4 -- the model will be trained each iteration with
 # 1000/4 = 250 total iterations.
 BATCH_SIZE = 4
-# Type of hyperparameters optimization (GRID, RANDOM, BAYESIAN)
+# Type of hyperparameters optimization (GRID, RANDOM, BAYESIAN) or NONE if you want the simple version.
 HYPERPARAMETERS_OPTIMIZATION = EnumHyperParamsOptimization.BAYESIAN
 # Number of trials for hyperparameters optimization
 TRIALS = 2

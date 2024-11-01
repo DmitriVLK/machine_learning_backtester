@@ -2,7 +2,7 @@ import random
 from os import linesep, makedirs, getcwd
 from os.path import join, exists
 import keras
-import numpy as np
+from sklearn.metrics import multilabel_confusion_matrix, classification_report
 from tensorflow.data import Dataset
 # LOCAL LIBRARIES:
 import constants
@@ -173,8 +173,8 @@ def run():
     del labels, features
 
     # SECTION: Prepare the Features and Labels for training
-    labels, features = shuffle_observations(concatenated_labels, concatenated_features)
-    labels, features = equalize_to_4_labels(labels, features)
+    labels, features = equalize_to_4_labels(concatenated_labels, concatenated_features)
+    labels, features = shuffle_observations(labels, features)
 
     if labels is None or features is None:
         print("There were no observations in this dataset. Ending the program execution.")
@@ -195,6 +195,10 @@ def run():
     del labels, features
 
     # Wrap into a TF DataSet:
+    #test_labels = keras.utils.to_categorical(test_labels, num_classes=2)
+    #train_labels = keras.utils.to_categorical(train_labels, num_classes=2)
+    train_labels = [[int(x[0]), int(x[1])] for x in train_labels]
+    test_labels = [[int(x[0]), int(x[1])] for x in test_labels]
     train_dataset = Dataset.from_tensor_slices((train_features, train_labels))
     test_dataset = Dataset.from_tensor_slices((test_features, test_labels))
     # divide the dataset in batches after it being sliced.
@@ -206,27 +210,35 @@ def run():
 
     # subsection C: create model
     # Define Sequential model. We use sequential models.
-    model: keras.Sequential
-    probability_model: keras.Sequential
+    model: keras.Model
     # We either use the hyperparams optimization or we fetch a simple model.
-    if constants.HYPERPARAMETERS_OPTIMIZATION == EnumHyperParamsOptimization.NONE:
-        model, probability_model = keras_models.get_model_prototype(input_vector_length,
-                                                                    output_vector_length,
-                                                                    train_dataset,
-                                                                    test_dataset)
+    if constants.HYPERPARAMETERS_OPTIMIZATION != EnumHyperParamsOptimization.NONE:
+        model = keras_models.get_model_prototype(input_vector_length,
+                                                 output_vector_length,
+                                                 train_dataset,
+                                                 test_dataset)
     else:
-        model, probability_model = keras_models.get_model_prototype_simple(input_vector_length,
-                                                                           output_vector_length,)
+        model = keras_models.get_model_prototype_simple(input_vector_length,
+                                                        output_vector_length)
     # subsection D: fit
     # The y (labels) are contained in the dataset.
     model.fit(x=train_dataset, epochs=constants.EPOCHS_COUNT)
 
     # Test, predict and print models. Test accuracy goal 100%
     print(linesep)
+    print("Evaluating your model with TEST SET")
     test_loss, test_acc = model.evaluate(x=test_dataset)
     print(linesep)
     print(model.summary())
     print(linesep)
+    print("Evaluating a confusion matrix with TEST SET")
+    model_predicted = model.predict(x=test_dataset)
+    list_of_probas = model_predicted.tolist()
+    list_of_ints = [[int(x[0] > 0.5), int(x[1] > 0.5)] for x in list_of_probas]
+    cm = multilabel_confusion_matrix(test_labels, list_of_ints)
+    print("Confusion matrix and metrics:")
+    print(cm)
+    print(classification_report(test_labels, list_of_ints))
     print("All used indicators list:")
     indicator: Indicator
     for indicator in indicators:  # There is a control statement: this one can't be empty.
@@ -243,12 +255,13 @@ def run():
         # Test prediction: if you decide to make a single prediction.
         single_feature = train_features[0]
         # Wrap into a NP array
-        single_feature = (np.expand_dims(single_feature, 0))
+        single_feature = ([single_feature,],)
+        single_feature = Dataset.from_tensor_slices(single_feature).batch(constants.BATCH_SIZE)
         # Predict a single indicators array by feeding the raw numbers to the trained model
-        single_prediction = probability_model.predict(x=single_feature)
+        single_prediction = model.predict(x=single_feature, verbose=2)
         # Print the output example to the user
-        predicted_as_softmax_label_0 = single_prediction[0][0] >= 0.5
-        predicted_as_softmax_label_1 = single_prediction[0][1] >= 0.5
+        predicted_label_0 = single_prediction[0][0] >= 0.5
+        predicted_label_1 = single_prediction[0][1] >= 0.5
         print('\nExample prediction.\nExpected: SELL: {}; BUY: {}\nPredicted : SELL: {}; BUY: {}'
               .format(train_labels[0][0], train_labels[0][1],
-                      predicted_as_softmax_label_0, predicted_as_softmax_label_1))
+                      predicted_label_0, predicted_label_1))
