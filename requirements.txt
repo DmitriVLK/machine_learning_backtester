@@ -1,0 +1,8 @@
+sortedcontainers>=2.4.0
+tensorflow~=2.16.2
+numpy~=1.26.4
+DateTime~=5.5
+keras~=3.6.0
+keras_tuner~=1.4.7
+scipy~=1.14.1
+scikit-learn~=1.5.2
